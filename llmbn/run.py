@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
-BNSynth: Bayesian Network Synthesis Framework Runner
+LLMBN: Bayesian Network Structure Discovery Using Large Language Models
 
-This script provides the main entry point for BNSynth workflows supporting:
+This script provides the main entry point for LLMBN workflows supporting:
 - BN construction/generation (LLM-based and traditional methods)
 - BN refinement based on initial graphs (LLM-enhanced and traditional methods)
 - Data-dependent and data-free structural learning
@@ -27,9 +27,8 @@ import datetime
 from typing import Dict, Any
 
 # Import will be resolved at runtime
-from workflow_controller import WorkflowController
-from utils.io_utils import get_experiment_path, init_experiment
-# Removed: from analyze import analyze_experiment
+from llmbn.workflow_controller import WorkflowController
+from llmbn.utils.io_utils import get_experiment_path, init_experiment
 
 
 def init_logging(config: dict) -> logging.Logger:
@@ -49,26 +48,77 @@ def init_logging(config: dict) -> logging.Logger:
     log_dir = os.path.dirname(log_file_path)
     os.makedirs(log_dir, exist_ok=True)
 
-    logging.basicConfig(
-        filename=log_file_path,
-        level=logging.DEBUG,
-        encoding="utf-8",
-        filemode="a",
+    # Custom formatter to show full module path
+    class PathFormatter(logging.Formatter):
+        def format(self, record):
+            # Get the full module path
+            module_path = record.pathname
+            # Convert to format like llmbn.workflow_controller
+            if module_path.endswith('.py'):
+                relative_path = os.path.relpath(module_path, os.path.dirname(os.path.dirname(__file__)))
+                module_parts = relative_path.split(os.sep)
+                if len(module_parts) > 1:
+                    record.pathname_formatted = '.'.join(module_parts).replace('.py', '')
+                else:
+                    record.pathname_formatted = module_parts[0].replace('.py', '')
+            else:
+                record.pathname_formatted = record.name
+            
+            return super().format(record)
+    
+    # Configure file logging
+    file_handler = logging.FileHandler(log_file_path, mode='a', encoding='utf-8')
+    file_handler.setLevel(logging.DEBUG)
+    file_formatter = PathFormatter(
+        "{asctime} - {levelname:8}:{pathname_formatted}:{lineno}:{message}",
         style="{",
-        format="{asctime} - {levelname}:{filename}:{lineno}:{message}",
-        datefmt="%Y-%m-%d %H:%M",
+        datefmt="%Y-%m-%d %H:%M"
     )
+    file_handler.setFormatter(file_formatter)
+    
+    # Configure root logger
+    logging.root.setLevel(logging.DEBUG)
+    logging.root.addHandler(file_handler)
 
-    # Add console handler
+    # Define color codes for different logging levels
+    class ColorPathFormatter(PathFormatter):
+        COLORS = {
+            'DEBUG': '\033[94m',    # Blue
+            'INFO': '\033[92m',     # Green
+            'WARNING': '\033[93m',  # Yellow
+            'ERROR': '\033[91m',    # Red
+            'CRITICAL': '\033[1;91m',  # Bold Red
+            'RESET': '\033[0m'      # Reset
+        }
+
+        def format(self, record):
+            # First get the pathname_formatted from parent class
+            super().format(record)
+            
+            # Save the original levelname
+            original_levelname = record.levelname
+            # Apply color to levelname only
+            if record.levelname in self.COLORS:
+                record.levelname = f"{self.COLORS[record.levelname]}{record.levelname}{self.COLORS['RESET']}"
+            
+            # Format with colored levelname and module path
+            result = logging.Formatter.format(self, record)
+            
+            # Restore original levelname for other handlers
+            record.levelname = original_levelname
+            
+            return result
+
+    # Add console handler with colors
     console = logging.StreamHandler()
     console.setLevel(logging.INFO)
-    formatter = logging.Formatter(
-        "{asctime} - {levelname}:{filename}:{lineno}:{message}", 
+    color_formatter = ColorPathFormatter(
+        "{asctime} - {levelname:8}:{pathname_formatted}:{lineno}:{message}", 
         style="{", 
         datefmt="%Y-%m-%d %H:%M"
     )
-    console.setFormatter(formatter)
-    logging.getLogger().addHandler(console)
+    console.setFormatter(color_formatter)
+    logging.root.addHandler(console)
 
     return logging.getLogger(__name__)
 
@@ -76,7 +126,7 @@ def init_logging(config: dict) -> logging.Logger:
 def parse_arguments() -> argparse.Namespace:
     """Parse command-line arguments."""
     parser = argparse.ArgumentParser(
-        description="BNSynth - Bayesian Network Synthesis Framework: Execute generation and/or refinement workflows"
+        description="LLMBN - Bayesian Network Structure Discovery Using Large Language Models: Execute generation and/or refinement workflows"
     )
     
     parser.add_argument(
@@ -143,7 +193,7 @@ def load_config(config_path: str) -> Dict[str, Any]:
 
 
 def main():
-    """Main entry point for BNSynth framework."""
+    """Main entry point for LLMBN framework."""
     args = parse_arguments()
     try:
         config = load_config(args.config)
@@ -153,6 +203,7 @@ def main():
         max_workers = min(4, len(datasets))  # Adjust as needed
         logger = init_logging(config)
         exp_data_dir = init_experiment(config, logger)
+        logging.info("[INFO] Experiment data directory: %s", exp_data_dir)
         
         controller = WorkflowController(
             config,
@@ -161,9 +212,9 @@ def main():
         )
         controller.run_full_experiment(max_workers=max_workers)
         controller.analyze_results()
-        print("[INFO] Batch analysis completed for all datasets.")
+        logger.info("[INFO] Batch analysis completed for all datasets.")
     except Exception as e:
-        logging.error("Fatal error in BNSynth runner: %s", e, exc_info=True)
+        logging.error("Fatal error in main runner: %s", e, exc_info=True)
         raise
 
 

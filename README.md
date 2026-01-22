@@ -1,5 +1,4 @@
 # LLMBN: Bayesian Network Structure Discovery Using Large Language Models
-[![arXiv](https://img.shields.io/badge/arXiv-2501.01234-b31b1b.svg)](https://arxiv.org/pdf/2511.00574)
 
 LLMBN is an open-source framework for discovering and refining Bayesian network structures by placing large language models at the center of the learning loop. It supports both data-free structure generation from metadata and data-aware refinement with classical scores such as BIC, providing flexible and reproducible workflows for state-of-the-art structure learning across research and practical applications.
 
@@ -46,7 +45,7 @@ LLMBN is an open-source framework for discovering and refining Bayesian network 
 
 2. **Install R & Required Packages**
 
-   BNSynth requires R (≥ 4.3) with several Bioconductor packages for structure learning.
+   LLMBN requires R (≥ 4.3) with several Bioconductor packages for structure learning.
    
    **Install R:**
    ```bash
@@ -85,14 +84,14 @@ LLMBN is an open-source framework for discovering and refining Bayesian network 
     brew reinstall openblas
     ```
 
-3. **Install BNSynth and Python Dependencies**
+3. **Install LLMBN and Python Dependencies**
 
    Clone the repository, set up a virtual environment, and install dependencies:
    ```bash
    # Clone and enter the repo
-   git clone https://github.com/sherryzyh/bnsynth
-   cd bnsynth
-
+   git clone https://github.com/sherryzyh/llmbn.git
+   cd llmbn/llmbn
+   
    # (Recommended) Create a virtual environment
    python3 -m venv venv
    source venv/bin/activate  # On Windows: venv\Scripts\activate
@@ -106,17 +105,17 @@ LLMBN is an open-source framework for discovering and refining Bayesian network 
 You can get started immediately using the **sample data** and **sample configuration files** provided in this repository.
 
 1. **Use the sample data:**
-   - A sample dataset is already included under `data/bnlearn/` (e.g., the "asia" dataset).
+   - A sample dataset is already included under `llmbn/data/bnlearn/` (e.g., the "asia" dataset).
 2. **Use the sample configuration:**
-   - Sample config files are available in the `configs/` directory (e.g., `sample_generation_only.yaml`, `sample_refinement_only.yaml`).
+   - Sample config files are available in the `llmbn/configs/` directory (e.g., `sample_generation_only.yaml`, `sample_refinement_only.yaml`).
 3. **Run a workflow:**
    - For generation:
      ```bash
-     python run.py --config configs/sample_generation_only.yaml
+     python llmbn/run.py --config llmbn/configs/sample_generation_only.yaml
      ```
    - For refinement: (after you run the generation workflow)
      ```bash
-     python run.py --config configs/sample_refinement_only.yaml
+     python llmbn/run.py --config llmbn/configs/sample_refinement_only.yaml
      ```
 4. **Check results:**
    - Outputs will be saved in the `experiments/` directory as specified in your config.
@@ -125,7 +124,7 @@ You're ready to explore results or customize your workflow further.
 
 ## 📂 Input Data: Structure and Examples
 
-BNSynth supports two data sources: `bnlearn` and `bnrep`. Both use the same folder and file structure. Place your datasets under either `data/bnlearn/{dataset_name}/` or `data/bnrep/{dataset_name}/` as appropriate.
+LLMBN supports two data sources: `bnlearn` and `bnrep`. Both use the same folder and file structure. Place your datasets under either `llmbn/data/bnlearn/{dataset_name}/` or `llmbn/data/bnrep/{dataset_name}/` as appropriate.
 
 - **bnlearn datasets** can be downloaded from: [https://www.bnlearn.com/bnrepository/](https://www.bnlearn.com/bnrepository/)
 - **bnrep datasets** can be downloaded from: [https://github.com/manueleleonelli/bnRep/tree/master/data](https://github.com/manueleleonelli/bnRep/tree/master/data)
@@ -133,7 +132,7 @@ BNSynth supports two data sources: `bnlearn` and `bnrep`. Both use the same fold
 Example folder structure (for the "asia" dataset):
 
 ```
-data/
+llmbn/data/
 ├── bnlearn/
 │   └── asia/
 │       ├── asia_dag.csv         # DAG adjacency matrix
@@ -202,11 +201,11 @@ File: `asia_metadata.csv`
 
 ## 🛠️ Configuration Files: Structure and Examples
 
-BNSynth uses YAML configuration files to define experiment workflows, data sources, and algorithm settings. Place your configuration files in the `configs/` directory.
+LLMBN uses YAML configuration files to define experiment workflows, data sources, and algorithm settings. Place your configuration files in the `llmbn/configs/` directory.
 
 ### What is a Configuration File?
 
-A configuration file tells BNSynth:
+A configuration file tells LLMBN:
 - Which workflow to run (generation, refinement, or pipeline)
 - Where to find your input data and where to save results
 - Which generator/refiner/model to use
@@ -214,7 +213,7 @@ A configuration file tells BNSynth:
 
 ### Where to Put Configurations
 
-All configuration YAMLs should be placed in the `configs/` directory at the project root.
+All configuration YAMLs should be placed in the `llmbn/configs/` directory.
 
 ### Structure of a Configuration File
 
@@ -234,7 +233,7 @@ A typical configuration file includes the following sections:
 - **generation**: Defines all parameters for the generation process (e.g., generator/model selection, number of runs). This section is required for the `generation` and `pipeline` workflows. 
     - `repeated_run`: Number of times to repeat the generation process.
     - `generator`: The generator algorithm to use (e.g., `promptbn`, `pgmpy_hill_climbing`).
-    - `model`(optional): This specifies the LLM model used in LLM-driven generator.
+    - `model`: This specifies the LLM model used in LLM-driven generator. If not using LLM model, keep it an empty string `""`.
 - **refinement**: Defines all parameters for the refinement process (e.g., refiner/model selection, initialization). This section is required for the `refinement` and `pipeline` workflows.
     - `data`: Specifies where to obtain the initial graphs for refinement, since refinement operates on existing structures.
       - `init_generator`: The generator used to produce the initial graphs.
@@ -249,7 +248,7 @@ A typical configuration file includes the following sections:
 workflow: "generation"
 data:
   input_data:
-    root: "data"
+    root: "/path/to/your/data"
     dataset: ["asia"]
     source: "bnlearn"
   experiment_data:
@@ -272,7 +271,7 @@ generation:
 workflow: "refinement"
 data:
   input_data:
-    root: "data"
+    root: "/path/to/your/data"
     dataset: ["asia"]
     source: "bnlearn"
   experiment_data:
@@ -294,12 +293,12 @@ refinement:
 ```
 ### Tips
 
-- You can create new configs by copying and editing the samples in `configs/`.
+- You can create new configs by copying and editing the samples in `llmbn/configs/`.
 - For more details, see comments in the sample YAMLs or the documentation.
 
 ## ⚡ Running Workflows
 
-BNSynth supports multiple workflows for Bayesian network structure learning. Choose the workflow that fits your needs, update the configuration as needed, and run with a single command.
+LLMBN supports multiple workflows for Bayesian network structure learning. Choose the workflow that fits your needs, update the configuration as needed, and run with a single command.
 
 ### Workflow Options
 
@@ -317,10 +316,10 @@ Before running a workflow, make sure your data is organized as described in the 
 
 ### How to Run
 
-1. Create a configuration YAML in `configs/` (see above for details).
+1. Create a configuration YAML in `/path/to/your/configs/` (see above for details).
 2. Run the workflow using:
    ```bash
-   python run.py --config <your_config_file.yaml>
+   python llmbn/run.py --config /path/to/your/configs/<your_config_file.yaml>
    ```
 3. Results and logs will be saved in the output directories specified in your config.
 
@@ -336,20 +335,23 @@ To use your own data, place files as described in the Input Data section, update
 
 This project is licensed under the MIT License.
 
-If you use BNSynth in your research, please cite:
+If you use LLMBN in your research, please cite:
 
 ```bibtex
-@software{llmbn,
+@software{llmbn2025,
   title={LLMBN: Bayesian Network Structure Discovery Using Large Language Models},
-  author={Zhang, Yinghuan and Cui, Zijun and Zhang, Yufei},
+  author={Zhang, Yinghuan},
   year={2025},
-  url={https://github.com/sherryzyh/llmbn}
+  url={https://github.com/sherryzyh/llmbn},
+  version={1.0.0}
 }
 ```
 
 ## 📬 Contact
 
-For questions, support, or feedback, please contact: yinghuan.flash@gmail.com
+For questions, support, or feedback, please:
+- Open an issue on [GitHub Issues](https://github.com/sherryzyh/llmbn/issues)
+- Contact the authors through the repository
 
  
 ## 🤝 Contributing

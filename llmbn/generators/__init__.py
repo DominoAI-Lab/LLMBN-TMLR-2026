@@ -10,6 +10,8 @@ from .promptbn import PromptBNGenerator
 from .pgmpy_hill_climbing_generator import PgmpyHillClimbingGenerator
 from .pgmpy_mmhc_generator import PgmpyMMHCGenerator
 from .pgmpy_pc_generator import PgmpyPCGenerator
+# GES is not available in pgmpy 0.1.22, commenting out
+# from .pgmpy_ges_generator import PgmpyGESGenerator
 
 __all__ = [
     'BaseGenerator',
@@ -17,4 +19,6 @@ __all__ = [
     'PgmpyHillClimbingGenerator',
     'PgmpyMMHCGenerator', 
     'PgmpyPCGenerator'
+    # GES is not available in pgmpy 0.1.22, commenting out
+    # 'PgmpyGESGenerator'
 ]

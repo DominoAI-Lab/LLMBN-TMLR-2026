@@ -1,7 +1,7 @@
 """
 Unified interface for LLM providers (OpenAI, DeepSeek, Gemini).
 
-Provides a consistent API for LLM interactions in BNSynth, supporting both
+Provides a consistent API for LLM interactions in LLMBN, supporting both
 data-free generation and structure refinement. API keys are loaded from
 environment variables or .env file.
 """

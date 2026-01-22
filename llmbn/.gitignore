@@ -1,0 +1,91 @@
+# Python
+__pycache__/
+*.py[cod]
+*.so
+*.pyd
+*.pyo
+*.pkl
+*.pickle
+*.h5
+*.hdf5
+*.db
+*.sqlite
+*.egg-info/
+
+# Jupyter Notebooks
+.ipynb_checkpoints/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Environment variables
+.env
+.env.*
+
+# macOS
+.DS_Store
+
+# VSCode
+.vscode/
+
+# PyCharm
+.idea/
+
+# System files
+Thumbs.db
+Desktop.ini
+
+# Logs
+*.log
+logs/
+
+# Test, experiment, and output data
+results/
+experiments/
+
+# Project-specific
+**/__pycache__/
+
+# Ignore all output directories created by cookbooks or scripts
+output/
+outputs/
+
+# Ignore temporary files
+*.tmp
+*.temp
+
+# Ignore statistics and intermediate files
+*.json
+*.tsv
+*.xls
+*.xlsx
+
+# Ignore histories and checkpoints
+histories/
+checkpoints/
+
+# Ignore compiled C/C++/Fortran libraries
+*.o
+*.a
+*.dylib
+*.dll
+*.lib
+*.exp
+*.pdb
+
+# Ignore build artifacts
+dist/
+build/
+
+# Ignore coverage reports
+.coverage
+htmlcov/
+.coverage.*
+
+# Ignore pip wheel caches
+pip-wheel-metadata/
+__pypackages__/
+
+# End of .gitignore

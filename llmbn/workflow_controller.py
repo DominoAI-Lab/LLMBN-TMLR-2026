@@ -1,5 +1,5 @@
 """
-BNSynth Workflow Controller
+LLMBN Workflow Controller
 
 Orchestrates Bayesian Network structure learning workflows:
 - Generation: Creates BN structures using LLM-based or traditional methods
@@ -15,13 +15,13 @@ from typing import Dict, Any, Optional, Union
 from dataclasses import dataclass
 import os
 
-from utils.data_utils import load_data, load_observation, load_generations
-from utils.eval_utils import evaluate_generation
-from utils.graph_utils import construct_matrix_from_bn_dict
-from errors.generation_error import MaxRetriesError, InvalidDAGError, ParseResponseError
-from errors.pipeline_error import MissingGenerationsError
-from generators.base import BaseGenerator
-from refiners.base import BaseRefiner
+from llmbn.utils.data_utils import load_data, load_observation, load_generations
+from llmbn.utils.eval_utils import evaluate_generation
+from llmbn.utils.graph_utils import construct_matrix_from_bn_dict
+from llmbn.errors.generation_error import MaxRetriesError, InvalidDAGError, ParseResponseError
+from llmbn.errors.pipeline_error import MissingGenerationsError
+from llmbn.generators.base import BaseGenerator
+from llmbn.refiners.base import BaseRefiner
 
 
 @dataclass
@@ -104,8 +104,9 @@ class WorkflowController:
                 dataset,
                 self.config['observation'],
                 self.config,
+                self.logger,
             )
-            self.logger.info(f"[Data] {len(observation)} observations loaded for dataset {dataset}")
+            self.logger.info(f"[Data] [{dataset}] {len(observation)} observations loaded")
         return dag, dag_variables, desc_variables, observation
     
     def _load_generator(self) -> BaseGenerator:
@@ -122,19 +123,22 @@ class WorkflowController:
         generator_name = generator_config['generator']
         
         if generator_name == 'promptbn':
-            from generators.promptbn import PromptBNGenerator as Generator
+            from llmbn.generators.promptbn import PromptBNGenerator as Generator
             generator = Generator(
                 model=generator_config['model'],
                 logger=self.logger
             )
         elif generator_name == 'pgmpy_hill_climbing':
-            from generators.pgmpy_hill_climbing_generator import PgmpyHillClimbingGenerator as Generator
+            from llmbn.generators.pgmpy_hill_climbing_generator import PgmpyHillClimbingGenerator as Generator
             generator = Generator(logger=self.logger)
         elif generator_name == 'pgmpy_mmhc':
-            from generators.pgmpy_mmhc_generator import PgmpyMMHCGenerator as Generator
+            from llmbn.generators.pgmpy_mmhc_generator import PgmpyMMHCGenerator as Generator
             generator = Generator(logger=self.logger)
         elif generator_name == 'pgmpy_pc':
-            from generators.pgmpy_pc_generator import PgmpyPCGenerator as Generator
+            from llmbn.generators.pgmpy_pc_generator import PgmpyPCGenerator as Generator
+            generator = Generator(logger=self.logger)
+        elif generator_name == 'pgmpy_ges':
+            from llmbn.generators.pgmpy_ges_generator import PgmpyGESGenerator as Generator
             generator = Generator(logger=self.logger)
         else:
             raise ValueError(f"Unknown generator: {generator_name}")
@@ -157,11 +161,14 @@ class WorkflowController:
         # (config['refinement']['llm']['algorithm'] is kept for backward compatibility with config files)
         algorithm = refinement_config['refiner']
         if algorithm == 'reactbn':
-            from refiners.react_bn_agent import ReActBNAgent as Refiner
+            from llmbn.refiners.react_bn_agent import ReActBNAgent as Refiner
             refiner = Refiner(refinement_config['model'], self.logger)
         elif algorithm == 'hill_climbing':
-            from refiners.pgmpy_hill_climbing_refiner import PgmpyHillClimbingRefiner as Refiner
-            refiner = Refiner(self.logger)
+            from llmbn.refiners.pgmpy_hill_climbing_refiner import PgmpyHillClimbingRefiner as Refiner
+            refiner = Refiner(refinement_config['model'], self.logger)
+        elif algorithm == 'randombn':
+            from llmbn.refiners.random_bn_agent import RandomBNAgent as Refiner
+            refiner = Refiner(refinement_config['model'], self.logger)
         else:
             raise ValueError(f"Unknown refiner: {algorithm}. Available refiners: 'reactbn', 'hill_climbing'")
         self.logger.info("[Refiner] %s loaded", algorithm)
@@ -194,9 +201,11 @@ class WorkflowController:
         if generator is None:
             raise ValueError("A generator must be provided to execute_generation_workflow.")
         dag, dag_variables, desc_variables, observation = self._load_data_for_dataset(dataset)
-        self.logger.info(f"[Data] DAG, variables, and descriptions loaded for dataset {dataset}")
+        self.logger.info(f"[Workflow] Dataset {dataset} loaded successfully")
         
         try:
+            self.logger.info(f"[Workflow] Starting generation workflow for dataset {dataset}")
+            
             result_df = self._run_generation_experiment(
                 generator=generator,
                 dataset=dataset,
@@ -206,7 +215,9 @@ class WorkflowController:
                 dag=dag,
             )
             
-            self.logger.info("Generation workflow completed successfully")
+            self.logger.info("------------------------------------------------")
+            self.logger.info("[Workflow] Generation workflow completed successfully for dataset %s", dataset)
+            self.logger.info("------------------------------------------------")
             return WorkflowResult(
                 workflow_type="generation",
                 success=True,
@@ -392,7 +403,8 @@ class WorkflowController:
             MissingGenerationsError: If generations are missing
         """
         import time
-        from utils.io_utils import write_error_result, write_result
+        from llmbn.utils.io_utils import write_error_result, write_result
+        self.logger.info(f"[Generation] Starting experiment for dataset {dataset}")
         count = 0
         count_from_last_validated = 0
         validated_count = 0
@@ -425,7 +437,7 @@ class WorkflowController:
                     generations=prev_generations,
                 )
             except InvalidDAGError as e:
-                self.logger.exception(f"Invalid DAG: {e} in the {count}th run.")
+                self.logger.exception(f"[Generation] [{dataset}] Invalid DAG: {e} in the {count}th run.")
                 if count - count_from_last_validated >= 5:
                     self.logger.exception("Encountered 5 consecutive errors. Stop the experiment.")
                     write_error_result(
@@ -438,7 +450,7 @@ class WorkflowController:
                     raise
                 continue
             except ParseResponseError:
-                self.logger.exception("Unparsable Raw Generation in %dth run", count)
+                self.logger.exception("[Generation] [{dataset}] Unparsable Raw Generation in {count}th run", count)
                 if count - count_from_last_validated >= 5:
                     self.logger.exception("Encountered 5 consecutive errors. Stop the experiment.")
                     write_error_result(
@@ -478,33 +490,39 @@ class WorkflowController:
             if dag_validation == 1:
                 validated_count += 1
                 count_from_last_validated = count
-                self.logger.info(f"Current Run: {count}, Validated Run: {validated_count}")
+                self.logger.info(f"[Generation] [{dataset}] Current Run: {count}, Validated Run: {validated_count}")
                 generations.append(llm_results['Generation'])
-                precision, recall, f1_score, accuracy, nhd, shd = evaluate_generation(
-                    dag_input=dag,
-                    pred_input=llm_results['Matrix'],
-                    logger=self.logger,
-                )
-                self.logger.info(f"nhd: {nhd:.4f}; shd: {shd:.4f}; f1_score: {f1_score:.4f}; accuracy: {accuracy:.4f}")
-                results["dataset"].append(dataset)
-                results["run"].append(validated_count)
-                results["precision"].append(precision)
-                results["recall"].append(recall)
-                results["f1_score"].append(f1_score)
-                results["accuracy"].append(accuracy)
-                results["nhd"].append(nhd)
-                results["shd"].append(shd)
-                results['latency'].append(f"{int(endtime-starttime)}")
+                try:
+                    self.logger.info(f"[Generation] [{dataset}] DAG {dag.shape} and Pred {llm_results['Matrix'].shape} evaluation...")
+                    precision, recall, f1_score, accuracy, nhd, shd = evaluate_generation(
+                        dag_input=dag,
+                        pred_input=llm_results['Matrix'],
+                        logger=self.logger,
+                    )
+                except Exception as e:
+                    self.logger.exception(f"[Generation] [{dataset}] Failed to evaluate generation: {e}")
+                    validated_count -= 1
+                else:
+                    self.logger.info(f"[Generation] [{dataset}] nhd: {nhd:.4f}; shd: {shd:.4f}; f1_score: {f1_score:.4f}; accuracy: {accuracy:.4f}")
+                    results["dataset"].append(dataset)
+                    results["run"].append(validated_count)
+                    results["precision"].append(precision)
+                    results["recall"].append(recall)
+                    results["f1_score"].append(f1_score)
+                    results["accuracy"].append(accuracy)
+                    results["nhd"].append(nhd)
+                    results["shd"].append(shd)
+                    results['latency'].append(f"{int(endtime-starttime)}")
                 
             if validated_count >= repeated_run:
-                self.logger.info(f"Hit run requirement. Total Run Count: {count}")
+                self.logger.info(f"[Generation] [{dataset}] Hit run requirement. Total Run Count: {count}")
                 break
         
         result_df = pd.DataFrame(results)
         result_df['total_run'] = count
         result_df['validated_run'] = validated_count
         result_df['dag_ratio'] = validated_count/count
-        result_df['generator'] = 'promptbn'
+        result_df['generator'] = generator.name
         result_df['sample'] = self.config['observation']
         
         write_result(
@@ -515,7 +533,6 @@ class WorkflowController:
             generations,
             self.logger,
         )
-        
         return result_df
     
     def _run_refinement_experiment(
@@ -544,8 +561,8 @@ class WorkflowController:
             pd.DataFrame: Results dataframe with metrics
         """
         import numpy as np
-        from utils.data_utils import save_history, save_matrix_graph
-        from utils.io_utils import write_result
+        from llmbn.utils.data_utils import save_history, save_matrix_graph
+        from llmbn.utils.io_utils import write_result
         
         exp_results = []
         
@@ -554,15 +571,16 @@ class WorkflowController:
             
             if self.config.get('observation', 0) == 0:
                 observation = None
+                self.logger.info("[Data] No observations loaded")
             else:
                 observation = load_observation(
                     source=self.config['data']['input_data']['source'],
                     dataset=dataset,
                     sample_size=self.config['observation'],
                     config=self.config,
+                    logger=self.logger,
                 )
-                
-            self.logger.info("[Data] %d Observations loaded with random seed %d", len(observation), run_idx)
+                self.logger.info("[Data] %d Observations loaded", len(observation))
             
             if init_generation is None:
                 init_shd = np.inf
@@ -754,7 +772,7 @@ class WorkflowController:
         
         Analyzes experiment results and saves statistics to the configured output directory.
         """
-        from utils.analyze_utils import analyze_generation, analyze_refinement
+        from llmbn.utils.analyze_utils import analyze_generation, analyze_refinement
         exp_root = self.config['data']['experiment_data']['experiment_name']
         results_dir = os.path.join(
             self.config['data']['experiment_data']['root'],
@@ -772,22 +790,19 @@ class WorkflowController:
             datasets = [datasets]
         if self.workflow_type == 'generation':
             for dataset in datasets:
-                self.logger.info(f"Running generation analysis for dataset: {dataset}...")
                 analyze_generation(results_dir, statistics_dir, out_path)
         elif self.workflow_type == 'refinement':
             for dataset in datasets:
-                self.logger.info(f"Running refinement analysis for dataset: {dataset}...")
                 analyze_refinement(results_dir, statistics_dir, out_path)
         elif self.workflow_type == 'pipeline':
             for dataset in datasets:
-                self.logger.info(f"Pipeline workflow: running both generation and refinement analysis for dataset: {dataset}...")
                 analyze_generation(results_dir, statistics_dir, out_path.replace('_statistics.csv', f'_generation_statistics_{dataset}.csv'))
                 analyze_refinement(results_dir, statistics_dir, out_path.replace('_statistics.csv', f'_refinement_statistics_{dataset}.csv'))
         else:
-            self.logger.warning(f"Unknown workflow type for analysis: {self.workflow_type}")
+            self.logger.warning(f"[Analysis] Unknown workflow type: {self.workflow_type}")
             return None
 
-    def run_full_experiment(self, max_workers=4) -> None:
+    def run_full_experiment(self, max_workers=1) -> None:
         """
         Run experiment on all datasets with optional parallelization.
         
@@ -797,6 +812,10 @@ class WorkflowController:
         Raises:
             ValueError: If workflow type is unknown
         """
+        self.logger.info("================================================")
+        self.logger.info("Running full experiment with workflow type: %s", self.workflow_type)
+        self.logger.info("================================================")
+        
         datasets = self.config['data']['input_data']['dataset']
         if not isinstance(datasets, list):
             datasets = [datasets]
@@ -812,18 +831,28 @@ class WorkflowController:
             raise ValueError(f"Unknown workflow type: {self.workflow_type}")
         def run_for_dataset(dataset) -> WorkflowResult:
             return self.execute(dataset, worker)
-        if len(datasets) == 1:
-            run_for_dataset(datasets[0])
-            self.logger.info("Completed workflow for dataset: %s", datasets[0])
-        else:
-            import concurrent.futures
-            with concurrent.futures.ThreadPoolExecutor(
-                max_workers=max_workers
-            ) as executor:
-                futures = [
-                    executor.submit(run_for_dataset, dataset)
-                    for dataset in datasets
-                ]
-                for future in concurrent.futures.as_completed(futures):
-                    future.result()  # Will raise exceptions if any
+        self.logger.info("================================================")
+        self.logger.info("Starting worker execution...")
+        self.logger.info("================================================")
+        for dataset in datasets:
+            run_for_dataset(dataset)
+            self.logger.info(f"[Workflow] [{dataset}] Completed workflow")
+        # TODO: parallelization - R memory issue
+        #     import concurrent.futures
+        #     with concurrent.futures.ThreadPoolExecutor(
+        #         max_workers=max_workers
+        #     ) as executor:
+        #         futures = [
+        #             executor.submit(run_for_dataset, dataset)
+        #             for dataset in datasets
+        #         ]
+        #         for future in concurrent.futures.as_completed(futures):
+        #             future.result()  # Will raise exceptions if any
+        
+        self.logger.info("================================================")
+        self.logger.info("Completed full experiment, starting analysis...")
+        self.logger.info("================================================")
         self.analyze_results()
+        self.logger.info("================================================")
+        self.logger.info("Analysis completed")
+        self.logger.info("================================================")

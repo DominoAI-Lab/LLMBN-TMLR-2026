@@ -3,9 +3,9 @@ import logging
 from typing import Any, Dict, Optional
 import pandas as pd
 
-from utils.graph_utils import construct_matrix_from_nodes
+from ..utils.graph_utils import construct_matrix_from_nodes
 from .base import BaseGenerator
-from errors.generation_error import ParseResponseError, MaxRetriesError
+from ..errors.generation_error import ParseResponseError, MaxRetriesError
 
 BASELINE_PROMPT = """
 You are an expert in building Bayesian Networks. You will receive variables in table format with columns [node, var_name, var_description, var_distribution]. Your task is to construct a Bayesian Network as a Directed Acyclic Graph (DAG) based on the table following the instructions below.

@@ -23,3 +23,6 @@ scikit-learn>=1.1.0
 
 # Parallel processing
 joblib>=1.2.0
+
+# Setuptools for Python 3.12+
+setuptools>=69.0.0

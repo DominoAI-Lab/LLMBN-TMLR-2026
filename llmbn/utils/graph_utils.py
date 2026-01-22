@@ -1,7 +1,11 @@
 import numpy as np
 import pandas as pd
+import logging
+import copy
+import networkx as nx
 
 from collections import defaultdict, deque
+from pgmpy.models import DiscreteBayesianNetwork
 
 from rpy2.robjects.packages import importr
 from rpy2.robjects import r, default_converter
@@ -11,7 +15,7 @@ import rpy2.robjects.pandas2ri as pandas2ri
 
 import json
 
-from errors.generation_error import InvalidDAGError, ParseResponseError
+from llmbn.errors.generation_error import InvalidDAGError, ParseResponseError
 
 # Ensure R has the required Bioconductor packages installed:
 # In R console:
@@ -22,7 +26,7 @@ from errors.generation_error import InvalidDAGError, ParseResponseError
 graph_pkg = importr("graph")
 pcalg     = importr("pcalg")
 
-def df_to_cpdag_pcalg(df: pd.DataFrame) -> pd.DataFrame:
+def df_to_cpdag_pcalg(df: pd.DataFrame, logger: logging.Logger) -> pd.DataFrame:
     """
     Convert a DAG adjacency matrix (DataFrame) to its CPDAG using R's pcalg via rpy2.
 
@@ -37,7 +41,7 @@ def df_to_cpdag_pcalg(df: pd.DataFrame) -> pd.DataFrame:
         Adjacency matrix of the CPDAG (1: directed edge, 2: undirected edge, 0: no edge).
     """
     n = df.shape[0]
-
+    
     # 1) Convert pandas DataFrame to R matrix and assign
     with localconverter(default_converter + pandas2ri.converter + numpy2ri.converter):
         amat = r.matrix(df.to_numpy(), nrow=n, ncol=n)
@@ -54,7 +58,7 @@ def df_to_cpdag_pcalg(df: pd.DataFrame) -> pd.DataFrame:
     # 3) Convert R matrix back to NumPy array
     with localconverter(default_converter + numpy2ri.converter):
         cpdag_np = np.array(r("cpdag_mat"))
-
+    
     # 4) Post-process: mark bidirectional edges (1,1) as undirected (2)
     for i in range(n):
         for j in range(i + 1, n):
@@ -62,7 +66,6 @@ def df_to_cpdag_pcalg(df: pd.DataFrame) -> pd.DataFrame:
                 cpdag_np[i, j] = 2
                 cpdag_np[j, i] = 2
 
-    # 5) Return labeled DataFrame
     return pd.DataFrame(cpdag_np, index=df.index, columns=df.columns)
 
 
@@ -239,7 +242,11 @@ def convert_to_bn_dict_format(minimal_graph):
     return dag_dict
 
 
-def generation_dict_to_discrete_bn(generation_dict, dag_variables):
+def construct_discrete_bn_from_bn_dict(
+    generation_dict: dict,
+    dag_variables: list,
+    logger: logging.Logger,
+) -> DiscreteBayesianNetwork:
     """
     Convert a generation dictionary to a discrete Bayesian network.
     
@@ -253,16 +260,30 @@ def generation_dict_to_discrete_bn(generation_dict, dag_variables):
     from pgmpy.models import DiscreteBayesianNetwork
     from pgmpy.base import DAG
     
+    
     # Create DAG from generation dict
     edges = []
-    for child, parents in generation_dict.items():
-        for parent in parents:
-            edges.append((parent, child))
+    
+    if "bn" in generation_dict:
+        bn_dict = generation_dict['bn']
+    else:
+        bn_dict = generation_dict
+    logger.debug(f"BN dict: %s", bn_dict)
+    
+    for edge in bn_dict['edges']:
+        child: str = edge['to']
+        parent: str = edge['from']
+        edges.append((parent, child))
     
     dag = DAG(edges)
     
     # Create discrete BN
     bn = DiscreteBayesianNetwork(dag)
+    
+    # Ensure all nodes are in the BN
+    for node in dag_variables:
+        if node not in bn.nodes():
+            bn.add_node(node)
     return bn
 
 
@@ -305,7 +326,7 @@ def adjacency_df_to_bn(adjacency_df, dag_variables):
     return G
 
 
-def evaluate_operation(current_graph, operation, cache, scorer, current_score):
+def evaluate_operation(current_graph, operation, cache, scorer, current_score, logger):
     """
     Evaluate a graph operation (add/remove edge) and return the score.
     
@@ -322,7 +343,6 @@ def evaluate_operation(current_graph, operation, cache, scorer, current_score):
     action, (parent, child) = operation
     
     # Create a copy of the current graph
-    import copy
     new_graph = current_graph.copy()
     
     if action == '+':
@@ -340,12 +360,30 @@ def evaluate_operation(current_graph, operation, cache, scorer, current_score):
     try:
         # Check for cycles
         if not nx.is_directed_acyclic_graph(new_graph):
+            logger.warning(f"Operation {operation} creates a cycle. Returning -inf.")
             return float('-inf')
         
         # Use the scorer to compute the score
         if scorer is not None:
-            return scorer.score(new_graph)
+            # Ensure that the graph only contains nodes that the scorer knows about
+            graph_nodes = set(new_graph.nodes())
+            if hasattr(scorer, 'state_names'):
+                scorer_nodes = set(scorer.state_names.keys())
+                unknown_nodes = graph_nodes - scorer_nodes
+                if unknown_nodes:
+                    logger.warning(f"Graph contains nodes not in scorer: {unknown_nodes}")
+                    return float('-inf')
+            
+            try:
+                score = scorer.score(new_graph)
+                logger.debug(f"Operation {operation} score: {score}")
+                return score
+            except KeyError as e:
+                logger.exception(f"KeyError in scorer: {e}")
+                return float('-inf')
         else:
+            logger.warning(f"Scorer is None. Returning current score: {current_score}")
             return current_score
     except:
+        logger.exception(f"Error evaluating operation {operation}")
         return float('-inf')

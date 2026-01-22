@@ -7,10 +7,13 @@ refiners that improve existing BN structures using observation data.
 
 from .base import BaseRefiner
 from .react_bn_agent import ReActBNAgent
-from .pgmpy_hill_climbing_refiner import PgmpyHillClimbingRefiner
+from .random_bn_agent import RandomBNAgent
 
 __all__ = [
     'BaseRefiner',
     'ReActBNAgent', 
-    'PgmpyHillClimbingRefiner'
+    'ReActBNAgentHC',
+    'ReActBNAgentTabu',
+    'PgmpyHillClimbingRefiner',
+    'RandomBNAgent'
 ]

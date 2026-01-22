@@ -1,12 +1,12 @@
 #!/bin/bash
-# BNSynth Installation Script
+# LLMBN Installation Script
 # - Enforces Python 3.10–3.12
 # - Requires .env with at least one provider API key
 # - Verifies R >= 4.3, R packages, and Python↔R (rpy2) integration
 
 set -e  # Exit on any error
 
-echo "🚀 BNSynth Installation Script"
+echo "🚀 LLMBN Installation Script"
 echo "=============================="
 
 # ---------- Helpers ----------

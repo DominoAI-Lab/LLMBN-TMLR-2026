@@ -2,7 +2,7 @@ import os
 import glob
 import pandas as pd
 import numpy as np
-from .result_schema import (
+from llmbn.utils.result_schema import (
     GENERATION_NUMERIC_COLS, GENERATION_META_COLS,
     REFINEMENT_NUMERIC_COLS, REFINEMENT_META_COLS
 )
@@ -41,13 +41,12 @@ def analyze_generation(results_dir, statistics_dir, out_path):
                 d[col] = 'NaN'
         d['error'] = x['error'].iloc[0]
         return pd.Series(d)
-    stats_df = all_df.groupby(group_cols).apply(agg_func).reset_index()
+    stats_df = all_df.groupby(group_cols, as_index=False).apply(agg_func, include_groups=False)
     meta = group_cols
     rest = [col for col in stats_df.columns if col not in meta]
     stats_df = stats_df[meta + rest]
     os.makedirs(statistics_dir, exist_ok=True)
     stats_df.to_csv(out_path, index=False)
-    print(f"Saved generation statistics to {out_path}")
     return stats_df
 
 def analyze_refinement(results_dir, statistics_dir, out_path):
@@ -84,12 +83,11 @@ def analyze_refinement(results_dir, statistics_dir, out_path):
                 d[col] = 'NaN'
         d['error'] = x['error'].iloc[0]
         return pd.Series(d)
-    stats_df = all_df.groupby(group_cols).apply(agg_func).reset_index()
+    stats_df = all_df.groupby(group_cols, as_index=False).apply(agg_func, include_groups=False)
     meta = group_cols
     rest = [col for col in stats_df.columns if col not in meta]
     stats_df = stats_df[meta + rest]
     os.makedirs(statistics_dir, exist_ok=True)
     stats_df.to_csv(out_path, index=False)
-    print(f"Saved refinement statistics to {out_path}")
     return stats_df
 

@@ -11,8 +11,8 @@ from typing import Any, Dict, Optional
 import pandas as pd
 import networkx as nx
 
-from llm import LLMClient
-from errors.generation_error import ParseResponseError, MaxRetriesError
+from llmbn.llm import LLMClient
+from llmbn.errors.generation_error import ParseResponseError, MaxRetriesError
 
 
 class BaseGenerator(ABC):
@@ -151,18 +151,18 @@ class BaseGenerator(ABC):
             raise NotImplementedError("generate() only available for LLM-based generators")
         
         for attempt in range(1, max_retries + 1):
-            self.logger.debug("Generating... (%d/%d)", attempt, max_retries)
+            self.logger.debug(f"[{self.name}] Generating... ({attempt}/{max_retries})")
             response = self.client.chat(messages=self.messages)
-            self.logger.debug("Raw response:\n%s", response)
+            self.logger.debug(f"[{self.name}] Raw response:\n{response}")
             try:
                 generation = self.parse_response(response)
-                self.logger.debug("JSON output:\n%s", generation)
+                self.logger.debug(f"[{self.name}] JSON output:\n{generation}")
                 return generation
             except ParseResponseError as e:
-                self.logger.exception("Parse Response Error on attempt %d: %s", attempt, e)
+                self.logger.exception(f"[{self.name}] Parse Response Error on attempt {attempt}: {e}")
                 raise e
             except Exception as e:
-                self.logger.exception("Exception on attempt %d: %s; Retrying...", attempt, e)
+                self.logger.exception(f"[{self.name}] Exception on attempt {attempt}: {e}; Retrying...")
                 continue
         raise MaxRetriesError("Max retries reached")
     
@@ -209,7 +209,7 @@ class BaseGenerator(ABC):
             raise ValueError("At least 2 variables are required for structure learning")
         
         if observation is not None:
-            self.logger.info("Input validation passed: %d variables, %d samples", len(observation.columns), len(observation))
+            self.logger.debug(f"[{self.name}] Input validation passed: {len(observation.columns)} variables, {len(observation)} samples")
     
     def _log_results(
         self,
@@ -221,15 +221,15 @@ class BaseGenerator(ABC):
         Args:
             results: Results dictionary from run()
         """
-        self.logger.info("Generator %s completed", self.name)
+        self.logger.info(f"[{self.name}] Generator completed")
         
         if 'Matrix' in results:
             matrix = results['Matrix']
             if hasattr(matrix, 'shape'):
-                self.logger.info("Generated structure: %dx%d adjacency matrix", matrix.shape[0], matrix.shape[1])
+                self.logger.info(f"[{self.name}] Generated structure: {matrix.shape[0]}x{matrix.shape[1]} adjacency matrix")
         
         if 'Generation' in results:
-            self.logger.info("Structure generation completed successfully")
+            self.logger.debug(f"[{self.name}] Structure generation completed successfully")
     
     def _dag_to_adjacency_matrix(
         self,
@@ -288,13 +288,13 @@ class BaseGenerator(ABC):
             edges.append({
                 "from": edge[0],
                 "to": edge[1],
-                "justification": "Learned from data using %s" % self.name
+                "justification": f"Learned from data using {self.name}"
             })
         
         return {
             "bn": {
                 "nodes": nodes,
                 "edges": edges,
-                "network_summary": "Bayesian network learned using %s with %d variables and %d edges" % (self.name, len(nodes), len(edges))
+                "network_summary": f"Bayesian network learned using {self.name} with {len(nodes)} variables and {len(edges)} edges"
             }
         }

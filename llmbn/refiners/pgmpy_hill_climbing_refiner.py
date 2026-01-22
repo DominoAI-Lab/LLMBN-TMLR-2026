@@ -12,8 +12,8 @@ from pgmpy.estimators import HillClimbSearch, BIC
 import networkx as nx
 
 # Import error types that might be used in exception handling
-from utils.eval_utils import evaluate_generation
-from utils.graph_utils import generation_dict_to_discrete_bn
+from llmbn.utils.eval_utils import evaluate_generation
+from llmbn.utils.graph_utils import generation_dict_to_discrete_bn
 from .base import BaseRefiner
 
 

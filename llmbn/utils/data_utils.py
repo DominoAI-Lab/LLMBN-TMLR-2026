@@ -8,9 +8,9 @@ from .path_utils import get_experiments_root, get_dataset_path, get_generations_
 def load_data(source, dataset, logger, config):
     """Load DAG data and variable descriptions."""
     if source == "bnlearn":
-        dag, dag_variables, desc_variables = load_bnlearn_data(dataset, config)
+        dag, dag_variables, desc_variables = load_bnlearn_data(dataset, logger, config)
     elif source == "bnrep":
-        dag, dag_variables, desc_variables = load_bnrep_data(dataset, config)
+        dag, dag_variables, desc_variables = load_bnrep_data(dataset, logger, config)
     else:
         raise ValueError(f"Unknown data source: {source}")
     logger.info(
@@ -30,7 +30,19 @@ def load_bnlearn_observation(dataset, sample, config):
     df = df.loc[:, ~df.columns.str.contains("^Unnamed")]
     return df
 
-def load_bnlearn_data(dataset, config):
+def load_bnrep_observation(dataset, sample, config):
+    """Load observation data from BNrep dataset."""
+    file_path = get_dataset_path(
+        config=config,
+        source="bnrep",
+        dataset=dataset,
+        file_type="samples",
+    )
+    df = pd.read_csv(file_path, nrows=sample)
+    df = df.loc[:, ~df.columns.str.contains("^Unnamed")]
+    return df
+
+def load_bnlearn_data(dataset, logger, config):
     """Load BNlearn dataset DAG and variable descriptions."""
     dag_path = get_dataset_path(config, "bnlearn", dataset, "dag")
     dag = pd.read_csv(
@@ -38,16 +50,18 @@ def load_bnlearn_data(dataset, config):
         index_col=0,
         na_filter=False
     )
+    logger.info(f"[Data] DAG for dataset {dataset} loaded from {dag_path}")
     dag_variables = dag.index.to_list()
     n_variables = len(dag_variables)
     for idx in range(n_variables):
         var = dag_variables[idx]
         dag_variables[idx] = var
     desc_path = get_dataset_path(config, "bnlearn", dataset, "var")
-    desc_variables = parse_var_csv_to_string(desc_path)
+    logger.info(f"[Data] Variable descriptions for dataset {dataset} loaded from {desc_path}")
+    desc_variables = parse_var_csv_to_string_scrambled(desc_path)
     return dag, dag_variables, desc_variables
 
-def load_bnrep_data(dataset, config):
+def load_bnrep_data(dataset, logger, config):
     """Load BNrep dataset DAG and variable descriptions."""
     dag_path = get_dataset_path(config, "bnrep", dataset, "dag")
     dag = pd.read_csv(
@@ -61,22 +75,21 @@ def load_bnrep_data(dataset, config):
         var = dag_variables[idx]
         dag_variables[idx] = var
     desc_path = get_dataset_path(config, "bnrep", dataset, "var")
-    desc_variables = parse_var_csv_to_string(desc_path)
+    desc_variables = parse_var_csv_to_string_scrambled(desc_path)
     return dag, dag_variables, desc_variables
     
-def load_observation(source, dataset, sample_size, config):
-    """Load observation data from the specified source."""
-    if source == "bnlearn":
-        observation = load_bnlearn_observation(
-            dataset,
-            sample_size,
-            config,
-        )
-    elif source == "bnrep":
-        observation = None  # Placeholder for bnrep support
-    else:
-        raise ValueError(f"Unknown data source: {source}")
-    return observation
+def load_observation(source, dataset, sample_size, config, logger):
+    
+    file_path = get_dataset_path(
+        config=config,
+        source=source,
+        dataset=dataset,
+        file_type="samples",
+    )
+    df = pd.read_csv(file_path, nrows=sample_size)
+    df = df.loc[:, ~df.columns.str.contains("^Unnamed")]
+    logger.info(f"[Data] [{dataset}({(source)})] Observation data loaded from {file_path}")
+    return df
  
 def parse_var_csv_to_string(csv_path):
     """
@@ -95,6 +108,34 @@ def parse_var_csv_to_string(csv_path):
             f"var_distribution: {row['var_distribution']}\n"
         )
     return result
+
+import pandas as pd
+
+def parse_var_csv_to_string_scrambled(csv_path):
+    """
+    Parse a variable CSV file into a formatted string, but in scrambled order.
+
+    Args:
+        csv_path (str): Path to the CSV file containing variable information.
+        seed (int, optional): Random seed for reproducible scrambling.
+
+    Returns:
+        str: Formatted string with variable information in random order.
+    """
+    df = pd.read_csv(csv_path, na_filter=False)
+
+    # Shuffle (scramble) the rows
+    df = df.sample(frac=1, random_state=5).reset_index(drop=True)
+
+    result = ""
+    for _, row in df.iterrows():
+        result += (
+            f"node: {row['node']}; var_name: {row['var_name']}; "
+            f"var_description: {row['var_description']}; "
+            f"var_distribution: {row['var_distribution']}\n"
+        )
+    return result
+
 
 
 def save_history(
@@ -211,4 +252,5 @@ def load_generations(
     
     with open(file_path, "r", encoding="utf-8") as f:
         generations = json.load(f)
+    logging.info("[Generations] Loaded (%s) %d generations from %s", dataset, len(generations), file_path)
     return generations

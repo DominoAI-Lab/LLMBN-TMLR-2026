@@ -21,6 +21,7 @@ class BaseRefiner(ABC):
     
     def __init__(
         self,
+        model: str,
         logger: Optional[logging.Logger] = None,
     ) -> None:
         """
@@ -29,6 +30,7 @@ class BaseRefiner(ABC):
         Args:
             logger: Logger instance for output
         """
+        self.model = model
         self.logger = logger or logging.getLogger(__name__)
         
     @property

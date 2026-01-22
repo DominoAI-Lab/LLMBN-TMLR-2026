@@ -2,7 +2,7 @@ import numpy as np
 import pandas as pd
 import networkx as nx
 from cdt.metrics import SHD
-from utils.graph_utils import df_to_cpdag_pcalg
+from llmbn.utils.graph_utils import df_to_cpdag_pcalg
 
 
 def evaluate_generation(
@@ -20,26 +20,26 @@ def evaluate_generation(
     else:
         pred = pred_input
         pred_df = pd.DataFrame(pred_input, columns=node_order)
-
+    logger.debug(f"Pred shape: {pred_df.shape}")
+    
     if isinstance(dag_input, pd.DataFrame):
         dag = dag_input.to_numpy().astype(int)
         dag_df = dag_input
     else:
         dag = dag_input
         dag_df = pd.DataFrame(dag_input, columns=node_order)
-
+    logger.debug(f"DAG shape: {dag_df.shape}")
+    
     n_variables = dag.shape[0]
-
-    logger.debug("Start counting corrects...")
+    logger.debug(f"Number of variables: {n_variables}")
+    
     corrects = np.equal(pred, dag).astype(int)
-
     num_corr = np.sum(corrects) - n_variables
 
     tp = np.sum((pred == 1) & (dag == 1))
     pred_sum = np.sum(pred)
     dag_sum = np.sum(dag)
 
-    logger.debug("Start calculating ...")
     precision = tp / pred_sum if pred_sum != 0 else 0
     recall = tp / dag_sum if dag_sum != 0 else 0
     logger.debug(f"Precision: {precision}, Recall: {recall}")
@@ -58,8 +58,8 @@ def evaluate_generation(
     nhd = hamming_distance/(n_variables * n_variables)
     logger.debug(f"NHD: {nhd}")
 
-    cpdag_np = df_to_cpdag_pcalg(dag_df).to_numpy().astype(int)
-    pred_cpdag_np = df_to_cpdag_pcalg(pred_df).to_numpy().astype(int)
+    cpdag_np = df_to_cpdag_pcalg(dag_df, logger).to_numpy().astype(int)
+    pred_cpdag_np = df_to_cpdag_pcalg(pred_df, logger).to_numpy().astype(int)
     logger.debug("DAG and Pred DAG converted to CPDAG in numpy array")
 
     shd_cdt = SHD(cpdag_np, pred_cpdag_np, False)
