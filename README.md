@@ -1,8 +1,12 @@
 # LLMBN: Bayesian Network Structure Discovery Using Large Language Models
 
+> 🎉 **Accepted at Transactions on Machine Learning Research (TMLR), 2026!**
+> Read the paper: [https://arxiv.org/pdf/2511.00574](https://arxiv.org/pdf/2511.00574)
+
 LLMBN is an open-source framework for discovering and refining Bayesian network structures by placing large language models at the center of the learning loop. It supports both data-free structure generation from metadata and data-aware refinement with classical scores such as BIC, providing flexible and reproducible workflows for state-of-the-art structure learning across research and practical applications.
 
 ### Features
+
 - Hybrid approach: combine LLM-based and algorithmic methods (Hill Climbing, PC, MMHC)
 - Data-free generation with LLMs (OpenAI, Gemini, DeepSeek) and data-driven optimization
 - Modular configuration for generation, refinement, or end-to-end workflows
@@ -10,6 +14,7 @@ LLMBN is an open-source framework for discovering and refining Bayesian network 
 - Ready-to-use sample datasets and configurations
 
 ### Table of Contents
+
 - [Quick Start](#quick-start)
 - [Input Data: Structure and Examples](#input-data-structure-and-examples)
 - [Configuration Files: Structure and Examples](#configuration-files-structure-and-examples)
@@ -22,6 +27,7 @@ LLMBN is an open-source framework for discovering and refining Bayesian network 
 ## 🚀 Quick Start
 
 ### Prerequisites
+
 - Python 3.10–3.12 (Python 3.13+ is not yet supported)
 - API key for one supported LLM provider:
   - [OpenAI (GPT models)](https://platform.openai.com/api-keys): Sign up and create an API key at the OpenAI platform.
@@ -35,6 +41,7 @@ LLMBN is an open-source framework for discovering and refining Bayesian network 
 1. **Configure API Key**
 
    Set your API key for your preferred LLM provider (OpenAI, Gemini, or DeepSeek):
+
    ```bash
    echo "OPENAI_API_KEY=your-actual-key-here" > .env
    # or
@@ -46,56 +53,64 @@ LLMBN is an open-source framework for discovering and refining Bayesian network 
 2. **Install R & Required Packages**
 
    LLMBN requires R (≥ 4.3) with several Bioconductor packages for structure learning.
-   
+
    **Install R:**
+
    ```bash
     # macOS
     brew install r
-
+   
     # Ubuntu / Debian
     sudo apt-get update
     sudo apt-get install r-base
-
+   
     # Windows
     Download from https://cran.r-project.org/
    ```
+
    **Install R packages (inside R console):**
+
    ```r
     # Install BiocManager if missing
     if (!requireNamespace("BiocManager", quietly=TRUE)) {
         install.packages("BiocManager")
     }
-
+   
     # Install required packages
     BiocManager::install(c("graph","RBGL","pcalg"))
    ```
+
    **Verify R packages installation (inside R console):**
+
    ```r
     library(graph)
     library(RBGL)
     library(pcalg)
    ```
+
     If no error messages appear, the setup is correct.
 
     macOS ARM64 (Apple Silicon) note
     If you see errors like `libRblas.dylib` not found, reinstall R with Homebrew and OpenBLAS:
+
     ```bash
-    brew reinstall r
-    brew reinstall openblas
+   brew reinstall r
+   brew reinstall openblas
     ```
 
 3. **Install LLMBN and Python Dependencies**
 
    Clone the repository, set up a virtual environment, and install dependencies:
+
    ```bash
    # Clone and enter the repo
-   git clone https://github.com/sherryzyh/llmbn.git
-   cd llmbn/llmbn
+   git clone https://github.com/DominoAI-Lab/LLMBN-TMLR-2026.git
+   cd LLMBN-TMLR-2026/llmbn
    
    # (Recommended) Create a virtual environment
    python3 -m venv venv
    source venv/bin/activate  # On Windows: venv\Scripts\activate
-
+   
    # Install all dependencies
    bash install.sh
    ```
@@ -105,19 +120,29 @@ LLMBN is an open-source framework for discovering and refining Bayesian network 
 You can get started immediately using the **sample data** and **sample configuration files** provided in this repository.
 
 1. **Use the sample data:**
+
    - A sample dataset is already included under `llmbn/data/bnlearn/` (e.g., the "asia" dataset).
+
 2. **Use the sample configuration:**
+
    - Sample config files are available in the `llmbn/configs/` directory (e.g., `sample_generation_only.yaml`, `sample_refinement_only.yaml`).
+
 3. **Run a workflow:**
+
    - For generation:
+
      ```bash
      python llmbn/run.py --config llmbn/configs/sample_generation_only.yaml
      ```
+
    - For refinement: (after you run the generation workflow)
+
      ```bash
      python llmbn/run.py --config llmbn/configs/sample_refinement_only.yaml
      ```
+
 4. **Check results:**
+
    - Outputs will be saved in the `experiments/` directory as specified in your config.
 
 You're ready to explore results or customize your workflow further.
@@ -148,56 +173,59 @@ llmbn/data/
 The file naming and structure are the same for both sources.
 
 ---
+
 **Observation Samples (CSV)**
 
 *Each sample file contains observational data for the Bayesian network. Each row is a single observation (sample), and each column is a variable. Values are typically categorical (e.g., yes/no).* 
 
 File: `samples/asia_5000_1.csv`
 
-|   | asia | tub | smoke | lung | bronc | either | xray | dysp |
-|---|------|-----|-------|------|-------|--------|------|------|
-| 1 | no   | no  | yes   | no   | no    | no     | no   | no   |
-| 2 | no   | no  | no    | no   | no    | no     | no   | no   |
-| 3 | no   | no  | yes   | no   | no    | no     | no   | no   |
-| 4 | no   | no  | yes   | no   | no    | no     | no   | no   |
-| 5 | no   | no  | yes   | no   | yes   | no     | no   | yes  |
-| … | …    | …   | …     | …    | …     | …      | …    | …    |
+|      | asia | tub  | smoke | lung | bronc | either | xray | dysp |
+| ---- | ---- | ---- | ----- | ---- | ----- | ------ | ---- | ---- |
+| 1    | no   | no   | yes   | no   | no    | no     | no   | no   |
+| 2    | no   | no   | no    | no   | no    | no     | no   | no   |
+| 3    | no   | no   | yes   | no   | no    | no     | no   | no   |
+| 4    | no   | no   | yes   | no   | no    | no     | no   | no   |
+| 5    | no   | no   | yes   | no   | yes   | no     | no   | yes  |
+| …    | …    | …    | …     | …    | …     | …      | …    | …    |
 
 ---
+
 **DAG Structure (CSV)**
 
 *The DAG CSV is an adjacency matrix representing the network structure. Rows and columns correspond to variables; a `1` in row `i`, column `j` indicates a directed edge from variable `i` to variable `j`.*
 
 File: `asia_dag.csv`
 
-|        | asia | tub | smoke | lung | bronc | either | xray | dysp |
-|--------|------|-----|-------|------|-------|--------|------|------|
-| asia   | 0    | 1   | 0     | 0    | 0     | 0      | 0    | 0    |
-| tub    | 0    | 0   | 0     | 0    | 0     | 1      | 0    | 0    |
-| smoke  | 0    | 0   | 0     | 1    | 1     | 0      | 0    | 0    |
-| lung   | 0    | 0   | 0     | 0    | 0     | 1      | 0    | 0    |
-| bronc  | 0    | 0   | 0     | 0    | 0     | 0      | 0    | 1    |
-| either | 0    | 0   | 0     | 0    | 0     | 0      | 1    | 1    |
-| xray   | 0    | 0   | 0     | 0    | 0     | 0      | 0    | 0    |
-| dysp   | 0    | 0   | 0     | 0    | 0     | 0      | 0    | 0    |
+|        | asia | tub  | smoke | lung | bronc | either | xray | dysp |
+| ------ | ---- | ---- | ----- | ---- | ----- | ------ | ---- | ---- |
+| asia   | 0    | 1    | 0     | 0    | 0     | 0      | 0    | 0    |
+| tub    | 0    | 0    | 0     | 0    | 0     | 1      | 0    | 0    |
+| smoke  | 0    | 0    | 0     | 1    | 1     | 0      | 0    | 0    |
+| lung   | 0    | 0    | 0     | 0    | 0     | 1      | 0    | 0    |
+| bronc  | 0    | 0    | 0     | 0    | 0     | 0      | 0    | 1    |
+| either | 0    | 0    | 0     | 0    | 0     | 0      | 1    | 1    |
+| xray   | 0    | 0    | 0     | 0    | 0     | 0      | 0    | 0    |
+| dysp   | 0    | 0    | 0     | 0    | 0     | 0      | 0    | 0    |
 
 ---
+
 **Variable Metadata (CSV)**
 
 *The metadata CSV lists each variable, its name, a description, and its distribution. This provides context for interpreting the variables in the samples and DAG.*
 
 File: `asia_metadata.csv`
 
-| node | var_name | var_description                              | var_distribution                        |
-|------|----------|----------------------------------------------|-----------------------------------------|
-| 1    | asia     | visit to Asia                                | a two-level factor with levels yes and no.   |
-| 2    | tub      | tuberculosis                                | a two-level factor with levels yes and no.   |
-| 3    | smoke    | smoking                                     | a two-level factor with levels yes and no.   |
-| 4    | lung     | lung cancer                                 | a two-level factor with levels yes and no.   |
-| 5    | bronc    | bronchitis                                  | a two-level factor with levels yes and no.   |
-| 6    | either   | tuberculosis versus lung cancer/bronchitis   | a two-level factor with levels yes and no.   |
-| 7    | xray     | chest X-ray                                 | a two-level factor with levels yes and no.   |
-| 8    | dysp     | dyspnoae                                    | a two-level factor with levels yes and no.   |
+| node | var_name | var_description                            | var_distribution                           |
+| ---- | -------- | ------------------------------------------ | ------------------------------------------ |
+| 1    | asia     | visit to Asia                              | a two-level factor with levels yes and no. |
+| 2    | tub      | tuberculosis                               | a two-level factor with levels yes and no. |
+| 3    | smoke    | smoking                                    | a two-level factor with levels yes and no. |
+| 4    | lung     | lung cancer                                | a two-level factor with levels yes and no. |
+| 5    | bronc    | bronchitis                                 | a two-level factor with levels yes and no. |
+| 6    | either   | tuberculosis versus lung cancer/bronchitis | a two-level factor with levels yes and no. |
+| 7    | xray     | chest X-ray                                | a two-level factor with levels yes and no. |
+| 8    | dysp     | dyspnoae                                   | a two-level factor with levels yes and no. |
 
 ## 🛠️ Configuration Files: Structure and Examples
 
@@ -206,6 +234,7 @@ LLMBN uses YAML configuration files to define experiment workflows, data sources
 ### What is a Configuration File?
 
 A configuration file tells LLMBN:
+
 - Which workflow to run (generation, refinement, or pipeline)
 - Where to find your input data and where to save results
 - Which generator/refiner/model to use
@@ -231,16 +260,16 @@ A typical configuration file includes the following sections:
     - `generations`, `logs`, `results`, `statistics`, etc.: Subfolders within the experiment folder for generated Bayesian networks, logs, results, and statistics, respectively.
 - **observation**: The number of samples to use from the input data.
 - **generation**: Defines all parameters for the generation process (e.g., generator/model selection, number of runs). This section is required for the `generation` and `pipeline` workflows. 
-    - `repeated_run`: Number of times to repeat the generation process.
-    - `generator`: The generator algorithm to use (e.g., `promptbn`, `pgmpy_hill_climbing`).
-    - `model`: This specifies the LLM model used in LLM-driven generator. If not using LLM model, keep it an empty string `""`.
+  - `repeated_run`: Number of times to repeat the generation process.
+  - `generator`: The generator algorithm to use (e.g., `promptbn`, `pgmpy_hill_climbing`).
+  - `model`: This specifies the LLM model used in LLM-driven generator. If not using LLM model, keep it an empty string `""`.
 - **refinement**: Defines all parameters for the refinement process (e.g., refiner/model selection, initialization). This section is required for the `refinement` and `pipeline` workflows.
-    - `data`: Specifies where to obtain the initial graphs for refinement, since refinement operates on existing structures.
-      - `init_generator`: The generator used to produce the initial graphs.
-      - `init_model`: The model used by the initial generator.
-      - `source_experiment`: The `experiment_name` of the corresponding generation experiment whose outputs will be refined.
-    - `refiner`: The refinement algorithm to use (e.g., `reactbn`).
-    - `model`(optional): This specifies the LLM model used in LLM-driven refiner.
+  - `data`: Specifies where to obtain the initial graphs for refinement, since refinement operates on existing structures.
+    - `init_generator`: The generator used to produce the initial graphs.
+    - `init_model`: The model used by the initial generator.
+    - `source_experiment`: The `experiment_name` of the corresponding generation experiment whose outputs will be refined.
+  - `refiner`: The refinement algorithm to use (e.g., `reactbn`).
+  - `model`(optional): This specifies the LLM model used in LLM-driven refiner.
 
 ### Example: Generation Only
 
@@ -291,6 +320,7 @@ refinement:
   refiner: "reactbn"
   model: "o3-mini"
 ```
+
 ### Tips
 
 - You can create new configs by copying and editing the samples in `llmbn/configs/`.
@@ -302,10 +332,10 @@ LLMBN supports multiple workflows for Bayesian network structure learning. Choos
 
 ### Workflow Options
 
-| Workflow         | Description                                 |
-|------------------|---------------------------------------------|
-| Generation       | Create BN structures from scratch           |
-| Refinement       | Refine existing BN structures               |
+| Workflow         | Description                                        |
+| ---------------- | -------------------------------------------------- |
+| Generation       | Create BN structures from scratch                  |
+| Refinement       | Refine existing BN structures                      |
 | Unified pipeline | Generation + refinement in one run *(Coming soon)* |
 
 > For now, run a generation workflow and then a refinement workflow separately for a full pipeline.
@@ -317,15 +347,19 @@ Before running a workflow, make sure your data is organized as described in the 
 ### How to Run
 
 1. Create a configuration YAML in `/path/to/your/configs/` (see above for details).
+
 2. Run the workflow using:
+
    ```bash
    python llmbn/run.py --config /path/to/your/configs/<your_config_file.yaml>
    ```
+
 3. Results and logs will be saved in the output directories specified in your config.
 
 To use your own data, place files as described in the Input Data section, update your config YAML, and run as above.
 
 ## 🐛 Troubleshooting
+
 - **R not found**: Install R and required packages as above
 - **API key errors**: Ensure `.env` exists and contains your key (OpenAI, Gemini, or DeepSeek)
 - **Data loading errors**: Check your data directory and file names
@@ -338,11 +372,24 @@ This project is licensed under the MIT License.
 If you use LLMBN in your research, please cite:
 
 ```bibtex
-@software{llmbn2025,
+@article{
+zhang2026bayesian,
+title={Bayesian Network Structure Discovery Using Large Language Models},
+author={Yinghuan Zhang and Yufei Zhang and Parisa Kordjamshidi and Zijun Cui},
+journal={Transactions on Machine Learning Research},
+issn={2835-8856},
+year={2026},
+url={https://openreview.net/forum?id=G4mrO8LVix},
+note={}
+}
+```
+
+```bibtex
+@software{llmbn2026,
   title={LLMBN: Bayesian Network Structure Discovery Using Large Language Models},
   author={Zhang, Yinghuan},
-  year={2025},
-  url={https://github.com/sherryzyh/llmbn},
+  year={2026},
+  url={https://github.com/DominoAI-Lab/LLMBN-TMLR-2026},
   version={1.0.0}
 }
 ```
@@ -350,10 +397,11 @@ If you use LLMBN in your research, please cite:
 ## 📬 Contact
 
 For questions, support, or feedback, please:
-- Open an issue on [GitHub Issues](https://github.com/sherryzyh/llmbn/issues)
+
+- Open an issue on [GitHub Issues](https://github.com/DominoAI-Lab/LLMBN-TMLR-2026/issues)
 - Contact the authors through the repository
 
- 
+
 ## 🤝 Contributing
 
 Contributions are welcome! To propose changes:
